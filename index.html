@@ -352,12 +352,13 @@ table.ft tr:hover td{background:rgba(255,255,255,.02)}
 // SHEET_ID  : bagian URL antara /d/ dan /edit
 // GID_SESI  : lihat di URL saat klik tab SP_Sesi  (contoh: ?gid=1490905731)
 // GID_TEMUAN: lihat di URL saat klik tab SP_Temuan (contoh: ?gid=266265038)
-const SHEET_ID    = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSJyL105VqZBbOoGgCB332hNVtEGCfXKuCCvHo-TY_rBI7XOJbx4DCq88QHK9h3WgnDUAIiWmkVo7DZ/pub?gid=1490905731&single=true&output=csv';
+const SHEET_ID    = '1Pb3oUzuJIyLvAf7uZ8k8RuYj-YNDHP7csqdRUzAJCQ8';
 const GID_SESI    = '1490905731';
 const GID_TEMUAN  = '266265038';
-// URL /pub?output=csv → bebas CORS, tapi butuh Sheet sudah di-Publish to web
-const SHEET_SESI   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${GID_SESI}&single=true&output=csv`;
-const SHEET_TEMUAN = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${GID_TEMUAN}&single=true&output=csv`;
+// URL gviz/tq — cukup dengan "Bagikan > Anyone with the link can VIEW"
+// Tidak perlu Publish to web
+const SHEET_SESI   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_SESI}`;
+const SHEET_TEMUAN = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_TEMUAN}`;
 
 // ─── Global Sheets data (diisi setelah fetch) ───────────────────────
 let SHEETS_TEMUAN = [];  // akan diisi dari Google Sheets setelah load
@@ -477,7 +478,7 @@ async function fetchSheets(){
   }catch(e){
     console.warn('Sheets fetch error:', e);
     document.getElementById('loadStatus').innerHTML =
-      '⚠ Sheets gagal — pastikan sheet sudah <b>Publish to web</b>';
+      '⚠ Sheets 403 — buka Google Sheets → Bagikan → Siapa pun yang memiliki link → Penampil → Selesai';
     return null;
   }
 }
@@ -813,7 +814,7 @@ function renderFindings(temuanRows){
   // ── Meta bar
   const meta=geoData.meta;
   // Tambah link test URL untuk debug
-  const testUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/pub?gid=${GID_SESI}&single=true&output=csv`;
+  const testUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID_SESI}`;
   document.getElementById('metaBar').innerHTML=
     `<span>📅 Update: ${meta.update_terakhir||'—'}</span>`+
     `<span>🚶 Sesi terakhir: ${meta.sesi_terakhir||'—'}</span>`+
