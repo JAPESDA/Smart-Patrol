@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0f0d">
+<title>Smart Patrol · PCI JAPESDA Gorontalo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#0a0f0d;--panel:#111a17;--panel2:#17221e;--border:#1e2d28;--border2:#25332e;
+  --green:#5fbf77;--green2:rgba(95,191,119,.15);--teal:#4fb4c4;--teal2:rgba(79,180,196,.15);
+  --amber:#e3a23c;--amber2:rgba(227,162,60,.15);--blue:#7d9fd6;--blue2:rgba(125,159,214,.15);
+  --red:#e0635a;--red2:rgba(224,99,90,.16);--purple:#9b8fea;
+  --text:#e4ede8;--text-dim:#8ca89f;--text-faint:#4a6159;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  --cond:'IBM Plex Sans Condensed',sans-serif;
+  --nav:56px;--sw:292px;--mnav:60px;--r:8px;--shadow:0 8px 32px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:var(--sans);border:none;background:none}
+.app{display:flex;flex-direction:column;height:100vh}
+.body{display:flex;flex:1;overflow:hidden;min-height:0}
+/* ── TOPNAV ── */
+.tnav{height:var(--nav);flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 14px;z-index:200}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none;color:inherit}
+.logo-icon{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--green),var(--teal));display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-title{font-family:var(--cond);font-weight:700;font-size:15px}
+.logo-sub{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase}
+.tnav-div{width:1px;height:24px;background:var(--border2);margin:0 2px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);flex-shrink:0;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.live-lbl{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.tnav-sp{flex:1}
+.load-status{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);display:flex;align-items:center;gap:6px}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hamburger{display:none;padding:6px 8px;border:1px solid var(--border2);border-radius:var(--r);color:var(--text-dim);font-size:16px;line-height:1}
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sw);flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-scroll{flex:1;overflow-y:auto;padding-bottom:16px}
+.sb-scroll::-webkit-scrollbar{width:3px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.snav{padding:10px 10px 6px}
+.snav-btn{width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:var(--r);font-size:13px;font-weight:500;color:var(--text-dim);cursor:pointer;transition:.14s;text-align:left}
+.snav-btn:hover{background:var(--panel2);color:var(--text)}
+.snav-btn.active{background:var(--green2);color:var(--green)}
+.snav-btn .ico{font-size:15px;width:20px;text-align:center}
+.snav-btn .bdg{margin-left:auto;font-family:var(--mono);font-size:9.5px;background:var(--green2);color:var(--green);padding:2px 6px;border-radius:100px}
+.sdiv{height:1px;background:var(--border);margin:8px 10px}
+.slbl{padding:11px 14px 5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint)}
+.lyr{display:flex;align-items:center;gap:9px;padding:6px 14px;font-size:12.5px;color:var(--text-dim)}
+.lyr-sw{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.lyr-sw.line{height:3px;border-radius:2px;margin-top:4px}
+.lyr-sw.circle{border-radius:50%}
+.lyr-name{flex:1}
+.tog{position:relative;width:32px;height:17px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0;position:absolute}
+.tog .tk{position:absolute;inset:0;background:var(--border2);border-radius:100px;transition:.18s;cursor:pointer}
+.tog input:checked+.tk{background:var(--green)}
+.tog .tk::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.18s}
+.tog input:checked+.tk::after{transform:translateX(15px)}
+.bm-row{display:flex;gap:6px;padding:7px 10px}
+.bm{flex:1;padding:6px 4px;border-radius:var(--r);border:1px solid var(--border2);background:var(--panel2);color:var(--text-dim);font-size:10.5px;font-family:var(--mono);cursor:pointer;transition:.14s;text-align:center}
+.bm.active{border-color:var(--green);color:var(--green);background:var(--green2)}
+.trk-row{display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:11.5px;color:var(--text-dim);cursor:pointer;transition:.14s}
+.trk-row:hover{background:rgba(255,255,255,.03);color:var(--text)}
+.trk-row .tline{width:18px;height:3px;border-radius:2px;flex-shrink:0}
+.trk-row .tid{font-weight:600;font-family:var(--mono);font-size:11px}
+.trk-row .tloc{color:var(--text-faint);font-size:10px}
+.trk-row .tqrt{font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-left:auto}
+.trk-row .teye{font-size:10px;color:var(--green)}
+.grid-stat{padding:6px 14px;font-size:12px;font-family:var(--mono);color:var(--text-dim);line-height:1.85}
+.grid-stat .gn{color:var(--text);font-weight:600}
+.grid-stat .gnt{color:var(--red)}
+/* ── MAIN ── */
+.main{flex:1;position:relative;overflow:hidden;min-width:0;background:var(--bg)}
+.view{position:absolute;inset:0;display:none;background:var(--bg);overflow-y:auto;overflow-x:hidden}
+.view.on{display:block;z-index:5}
+#map-view{display:block;z-index:5}
+#map{width:100%;height:100%}
+/* Map loading overlay */
+.map-loading{position:absolute;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:600;gap:14px}
+.map-loading .logo-big{font-size:40px}
+.map-loading .load-txt{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
+.map-loading .prog-wrap{width:200px;height:4px;background:var(--border2);border-radius:100px;overflow:hidden}
+.map-loading .prog-bar{height:100%;background:linear-gradient(90deg,var(--green),var(--teal));border-radius:100px;transition:width .3s}
+/* Map legend */
+.mleg{position:absolute;bottom:14px;left:12px;z-index:500;background:rgba(10,15,13,.88);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r);padding:11px 13px;min-width:155px}
+.mleg-t{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px}
+.mleg-r{display:flex;align-items:center;gap:7px;padding:2.5px 0;font-size:11.5px;color:var(--text-dim)}
+.msw{width:13px;height:9px;border-radius:2px;opacity:.7;flex-shrink:0}
+.msw.border-only{background:transparent;border:1.5px solid}
+.msw.dot-sm{width:9px;height:9px;border-radius:50%}
+/* View header */
+.vh{padding:16px 15px 10px;position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--border)}
+.vh-ey{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--green);margin-bottom:5px}
+.vh h2{font-family:var(--cond);font-size:22px;font-weight:700}
+.vh p{font-size:12.5px;color:var(--text-dim);margin-top:3px}
+/* KPI */
+.kpi-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);padding:13px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ac,var(--green))}
+.kpi.am{--ac:var(--amber)}.kpi.tl{--ac:var(--teal)}.kpi.rd{--ac:var(--red)}.kpi.bl{--ac:var(--blue)}
+.kpi .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px}
+.kpi .val{font-family:var(--cond);font-weight:700;font-size:26px;line-height:1}
+.kpi .sub{font-size:10.5px;color:var(--text-dim);margin-top:5px}
+/* Progress */
+.prog-sec{padding:0 14px 14px}
+.prog-lbl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.prog-lbl-row .pl{font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.prog-lbl-row .pv{font-family:var(--cond);font-size:18px;font-weight:700}
+.pbar{height:7px;border-radius:100px;background:#1a2520;overflow:hidden;margin-bottom:4px}
+.pfill{height:100%;border-radius:100px;background:linear-gradient(90deg,var(--pc1,var(--green)),var(--pc2,var(--teal)))}
+.pnote{font-size:10.5px;color:var(--text-faint);margin-bottom:16px}
+/* Charts */
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px 14px}
+.cc{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);padding:13px}
+.cc h3{font-family:var(--cond);font-size:14px;margin-bottom:3px}
+.cc .hint{font-size:11px;color:var(--text-dim);margin-bottom:10px}
+.cc .ch{position:relative;height:190px}
+/* Insights */
+.ig{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px 14px}
+.ic{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--iac,var(--green));border-radius:var(--r);padding:14px}
+.ic.am{--iac:var(--amber)}
+.ic h4{font-family:var(--cond);font-size:14px;margin-bottom:7px}
+.ic p,.ic li{font-size:12px;color:var(--text-dim);line-height:1.55}
+.ic ul{padding-left:14px;margin-top:5px}
+.ic li{margin-bottom:3px}
+.bign{font-family:var(--cond);font-size:28px;font-weight:700;color:var(--text)}
+/* Patrol cards */
+.pclist{padding:8px 10px}
+.pc{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:9px}
+.pc-hd{display:flex;align-items:center;gap:9px;margin-bottom:8px;flex-wrap:wrap}
+.pc-tag{font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:4px;background:var(--green2);color:var(--green);white-space:nowrap}
+.pc.ds2 .pc-tag{background:var(--teal2);color:var(--teal)}
+.pc-id{font-family:var(--cond);font-size:17px;font-weight:700}
+.pc-date{font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-left:auto}
+.pc-leader{font-size:11.5px;color:var(--text-dim);margin-bottom:9px}
+.pc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.pcs{background:var(--panel);border-radius:var(--r);padding:7px;text-align:center}
+.pcs .sv{font-family:var(--cond);font-size:18px;font-weight:700}
+.pcs .sk{font-size:9.5px;color:var(--text-dim);font-family:var(--mono)}
+.pc-flag{margin-top:8px;padding:5px 9px;border-radius:var(--r);font-size:11px;background:var(--red2);color:var(--red)}
+/* Findings table */
+.ftw{padding:0 10px 16px;overflow-x:auto}
+table.ft{width:100%;border-collapse:collapse;min-width:520px;font-size:12px}
+table.ft th,table.ft td{padding:8px 9px;border-bottom:1px solid var(--border);text-align:left}
+table.ft th{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);background:var(--panel2);position:sticky;top:0;z-index:2}
+table.ft tr:hover td{background:rgba(255,255,255,.02)}
+.by{font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:100px;background:var(--red2);color:var(--red)}
+.bn{font-family:var(--mono);font-size:9.5px;padding:2px 6px;border-radius:100px;background:rgba(255,255,255,.05);color:var(--text-faint)}
+/* Meta info bar */
+.meta-bar{padding:8px 14px;font-family:var(--mono);font-size:10px;color:var(--text-faint);border-top:1px solid var(--border);display:flex;gap:14px;flex-wrap:wrap}
+.meta-bar span{display:flex;align-items:center;gap:4px}
+/* ── FOTO ── */
+.foto-thumb{width:100%;max-height:160px;object-fit:cover;border-radius:var(--r);margin-top:8px;cursor:pointer;border:1px solid var(--border2)}
+.foto-thumb:hover{opacity:.85}
+.foto-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1000;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.foto-modal.open{display:flex}
+.foto-modal img{max-width:92vw;max-height:82vh;object-fit:contain;border-radius:var(--r);box-shadow:var(--shadow)}
+.foto-modal .foto-close{position:absolute;top:16px;right:18px;color:#fff;font-size:28px;cursor:pointer;background:rgba(0,0,0,.5);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1}
+.foto-modal .foto-cap{color:var(--text-dim);font-family:var(--mono);font-size:11px;text-align:center;max-width:80vw}
+.foto-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
+.foto-strip::-webkit-scrollbar{height:3px}
+.foto-strip::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.foto-strip img{height:72px;min-width:72px;object-fit:cover;border-radius:var(--r);cursor:pointer;border:1px solid var(--border2);flex-shrink:0}
+.foto-strip img:hover{border-color:var(--green)}
+.no-foto{font-family:var(--mono);font-size:10px;color:var(--text-faint);padding:4px 0}
+/* Gallery view */
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:14px}
+.gal-card{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:.14s}
+.gal-card:hover{border-color:var(--green)}
+.gal-card img{width:100%;height:130px;object-fit:cover}
+.gal-card .gal-info{padding:8px 10px}
+.gal-card .gal-id{font-family:var(--mono);font-size:10px;color:var(--green)}
+.gal-card .gal-cap{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+/* ── FOTO ── */
+/* Leaflet */
+.leaflet-control-zoom{border:1px solid var(--border2)!important;background:var(--panel)!important;border-radius:var(--r)!important;overflow:hidden}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text-dim)!important;border-bottom:1px solid var(--border2)!important;line-height:27px!important;width:27px!important;height:27px!important}
+.leaflet-control-zoom a:hover{background:var(--panel2)!important;color:var(--text)!important}
+.leaflet-popup-content-wrapper{background:var(--panel);color:var(--text);border-radius:var(--r);border:1px solid var(--border2);box-shadow:var(--shadow)}
+.leaflet-popup-tip{background:var(--panel)}
+.leaflet-popup-content{font-size:12px;font-family:var(--sans);margin:9px 13px}
+.leaflet-popup-content b{font-family:var(--mono)}
+.leaflet-control-attribution{background:rgba(10,15,13,.75)!important;color:var(--text-faint)!important;font-size:9.5px!important}
+.leaflet-control-attribution a{color:var(--text-dim)!important}
+/* Mobile */
+.mnav{display:none;position:fixed;bottom:0;left:0;right:0;height:var(--mnav);background:var(--panel);border-top:1px solid var(--border);z-index:300;grid-template-columns:repeat(5,1fr)}
+.mnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--text-faint);font-size:10.5px;cursor:pointer;padding:4px 0;transition:.14s}
+.mnav-btn .mi{font-size:19px}
+.mnav-btn.active{color:var(--green)}
+.sb-backdrop{display:none;position:fixed;inset:0;z-index:240;background:rgba(0,0,0,.5)}
+.sb-backdrop.on{display:block}
+@media(max-width:768px){
+  .sidebar{position:fixed;top:var(--nav);left:0;bottom:var(--mnav);width:min(290px,84vw);z-index:250;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow)}
+  .sidebar.open{transform:translateX(0)}
+  .hamburger{display:flex;align-items:center;justify-content:center}
+  .load-status{display:none}
+  .mnav{display:grid}
+  .main{padding-bottom:var(--mnav)}
+  .kpi-strip{grid-template-columns:1fr 1fr}
+  .cg,.ig{grid-template-columns:1fr}
+  .mleg{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<nav class="tnav">
+  <button class="hamburger" id="hbtn">☰</button>
+  <a class="logo" href="#">
+    <div class="logo-icon">🌿</div>
+    <div><div class="logo-title">Smart Patrol</div><div class="logo-sub">PCI JAPESDA · Resort Bolango TNBNW</div></div>
+  </a>
+  <div class="tnav-div"></div>
+  <span class="live-dot"></span>
+  <span class="live-lbl">Live · Google Sheets</span>
+  <div class="tnav-sp"></div>
+  <div class="load-status" id="loadStatus"><span class="spin">⟳</span> Memuat data...</div>
+</nav>
+<div class="body">
+<div class="sb-backdrop" id="sbBack"></div>
+<aside class="sidebar" id="sidebar">
+<div class="sb-scroll">
+  <div class="snav" id="snavEl">
+    <button class="snav-btn active" data-v="map-view"><span class="ico">🗺</span>Peta Patroli</button>
+    <button class="snav-btn" data-v="stats-view"><span class="ico">📊</span>Statistik<span class="bdg" id="bdgYear">—</span></button>
+    <button class="snav-btn" data-v="patrol-view"><span class="ico">🚶</span>Riwayat Sesi</button>
+    <button class="snav-btn" data-v="findings-view"><span class="ico">🔍</span>Temuan & Ancaman</button>
+    <button class="snav-btn" data-v="gallery-view"><span class="ico">📷</span>Galeri Foto</button>
+  </div>
+  <div class="sdiv"></div>
+  <div class="slbl">Lapisan Peta</div>
+  <div class="lyr"><span class="lyr-sw" style="background:#5e7fb5;border:2px solid #7d9fd6;box-sizing:border-box"></span><span class="lyr-name">TNBNW (batas TN)</span><label class="tog"><input type="checkbox" checked id="lyr-tnbnw"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw" style="background:#e05a6a;opacity:.7"></span><span class="lyr-name">Zona Inti</span><label class="tog"><input type="checkbox" checked id="lyr-inti"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw" style="background:#7d9fd6;opacity:.7"></span><span class="lyr-name">Zona Rehabilitasi</span><label class="tog"><input type="checkbox" checked id="lyr-rehab"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw" style="background:#5fbf77;opacity:.7"></span><span class="lyr-name">Zona Pemanfaatan</span><label class="tog"><input type="checkbox" checked id="lyr-manfaat"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw" style="background:#f5a623;opacity:.7"></span><span class="lyr-name">Zona Rimba</span><label class="tog"><input type="checkbox" checked id="lyr-rimba"><span class="tk"></span></label></div>
+  <div class="sdiv"></div>
+  <div class="lyr"><span class="lyr-sw circle" style="background:#4fb4c4"></span><span class="lyr-name">Grid terpatroli</span><label class="tog"><input type="checkbox" checked id="lyr-gvis"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw" style="background:#c84040;opacity:.55;border:1px dashed #e05a6a;box-sizing:border-box"></span><span class="lyr-name">Grid belum terpatroli</span><label class="tog"><input type="checkbox" checked id="lyr-gunvis"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw line" style="background:var(--green)"></span><span class="lyr-name">Rute Patroli GPS</span><label class="tog"><input type="checkbox" checked id="lyr-tracks"><span class="tk"></span></label></div>
+  <div class="sdiv"></div>
+  <div class="slbl">Filter Temuan per Kategori</div>
+  <div class="lyr"><span class="lyr-sw circle" style="background:#5fbf77"></span><span class="lyr-name">Satwa Liar <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)" id="cnt-satwa"></span></span><label class="tog"><input type="checkbox" checked id="lyr-satwa"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw circle" style="background:#e0635a"></span><span class="lyr-name">Aktivitas Manusia <span style="font-family:var(--mono);font-size:9px;color:var(--red)" id="cnt-am"></span></span><label class="tog"><input type="checkbox" checked id="lyr-am"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw circle" style="background:#7d9fd6"></span><span class="lyr-name">Fitur Alam <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)" id="cnt-fitur"></span></span><label class="tog"><input type="checkbox" checked id="lyr-fitur"><span class="tk"></span></label></div>
+  <div class="lyr"><span class="lyr-sw circle" style="background:#4fb4c4"></span><span class="lyr-name">Tumbuhan <span style="font-family:var(--mono);font-size:9px;color:var(--text-faint)" id="cnt-tumbuhan"></span></span><label class="tog"><input type="checkbox" checked id="lyr-tumbuhan"><span class="tk"></span></label></div>
+  <div class="lyr" style="padding-top:2px;padding-bottom:2px">
+    <button onclick="toggleAllFindings(true)" style="flex:1;font-family:var(--mono);font-size:10px;padding:5px 4px;background:var(--panel2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text-dim);cursor:pointer">Tampilkan semua</button>
+    <button onclick="toggleAllFindings(false)" style="flex:1;font-family:var(--mono);font-size:10px;padding:5px 4px;background:var(--panel2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text-dim);cursor:pointer;margin-left:6px">Sembunyikan</button>
+  </div>
+  <div class="sdiv"></div>
+  <div class="slbl">Peta Dasar</div>
+  <div class="bm-row">
+    <button class="bm active" data-bm="dark">🌙 Dark</button>
+    <button class="bm" data-bm="sat">🛰 Satelit</button>
+    <button class="bm" data-bm="osm">🗺 Standar</button>
+  </div>
+  <div class="sdiv"></div>
+  <div class="slbl">Rute per Sesi</div>
+  <div id="trkList"><div style="padding:8px 14px;font-size:11px;color:var(--text-faint);font-family:var(--mono)"><span class="spin">⟳</span> Memuat...</div></div>
+  <div class="sdiv"></div>
+  <div class="slbl">Cakupan Grid</div>
+  <div class="grid-stat" id="gridStat"><span class="spin">⟳</span></div>
+</div>
+</aside>
+<main class="main">
+  <!-- MAP -->
+  <div class="view on" id="map-view">
+    <div id="map"></div>
+    <div class="map-loading" id="mapLoading">
+      <div class="logo-big">🌿</div>
+      <div class="load-txt" id="mapLoadTxt">Memuat peta...</div>
+      <div class="prog-wrap"><div class="prog-bar" id="mapProgBar" style="width:5%"></div></div>
+    </div>
+    <div class="mleg">
+      <div class="mleg-t">Zona TNBNW</div>
+      <div class="mleg-r"><span class="msw border-only" style="border-color:#7d9fd6"></span>Batas TN</div>
+      <div class="mleg-r"><span class="msw" style="background:#e05a6a"></span>Zona Inti</div>
+      <div class="mleg-r"><span class="msw" style="background:#7d9fd6"></span>Zona Rehabilitasi</div>
+      <div class="mleg-r"><span class="msw" style="background:#5fbf77"></span>Zona Pemanfaatan</div>
+      <div class="mleg-r"><span class="msw" style="background:#f5a623"></span>Zona Rimba</div>
+      <div class="mleg-t" style="margin-top:8px">Grid & Temuan</div>
+      <div class="mleg-r"><span class="msw dot-sm" style="background:#4fb4c4;opacity:.7"></span>Grid terpatroli</div>
+      <div class="mleg-r"><span class="msw" style="background:#c84040;opacity:.5;border:1px dashed #e05a6a;box-sizing:border-box"></span>Belum terpatroli</div>
+      <div class="mleg-r"><span class="msw dot-sm" style="background:#5fbf77"></span>Satwa Liar</div>
+      <div class="mleg-r"><span class="msw dot-sm" style="background:#e0635a;width:11px;height:11px"></span>Aktivitas Manusia</div>
+    </div>
+  </div>
+  <!-- STATISTIK -->
+  <div class="view" id="stats-view">
+    <div class="vh"><div class="vh-ey">Program PCI JAPESDA</div><h2>Statistik Patroli</h2><p id="statsSubtitle">Capaian monitoring kawasan penyangga TNBNW vs target logframe</p></div>
+    <div class="kpi-strip" id="kpiStrip"></div>
+    <div class="prog-sec" id="progSec"></div>
+    <div class="cg">
+      <div class="cc"><h3>Sesi per Kuartal</h3><div class="hint">Realisasi vs target 7,5 sesi/kuartal</div><div class="ch"><canvas id="cTrend"></canvas></div></div>
+      <div class="cc"><h3>Komposisi Temuan</h3><div class="hint">Berdasarkan observasi tercatat</div><div class="ch"><canvas id="cCat"></canvas></div></div>
+      <div class="cc"><h3>Top Jenis Satwa</h3><div class="hint">Akumulasi tanda, perjumpaan & satwa mati</div><div class="ch"><canvas id="cSpec"></canvas></div></div>
+      <div class="cc"><h3>Perbandingan Desa</h3><div class="hint">Sesi, hari, dan temuan per desa</div><div class="ch"><canvas id="cDesa"></canvas></div></div>
+    </div>
+    <div style="padding:0 14px 6px"><div class="slbl" style="padding:0 0 8px">Insight & Rekomendasi</div></div>
+    <div class="ig" id="insightGrid"></div>
+    <div class="meta-bar" id="metaBar"></div>
+  </div>
+  <!-- PATROLI -->
+  <div class="view" id="patrol-view">
+    <div class="vh"><div class="vh-ey" id="patrolEy">SP_009 – terbaru</div><h2>Riwayat Sesi Patroli</h2><p>Data dari Google Sheets · update otomatis saat sesi baru ditambahkan</p></div>
+    <div class="pclist" id="pcList"><div style="padding:24px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)"><span class="spin">⟳</span> Memuat...</div></div>
+  </div>
+  <!-- TEMUAN -->
+  <div class="view" id="findings-view">
+    <div class="vh"><div class="vh-ey">Indikator 2.3</div><h2>Temuan & Ancaman</h2><p>Aktivitas Manusia terdeteksi selama patroli</p></div>
+    <div class="ftw"><table class="ft" id="ftbl"></table></div>
+  </div>
+
+  <!-- GALLERY -->
+  <div class="view" id="gallery-view">
+    <div class="vh"><div class="vh-ey">Dokumentasi Lapangan</div><h2>Galeri Foto Patroli</h2><p>Foto dari Google Drive · klik foto untuk perbesar</p></div>
+    <div id="galContent"><div style="padding:24px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)"><span class="spin">⟳</span> Memuat...</div></div>
+  </div>
+
+  </div>
+</main>
+</div>
+</div>
+<!-- FOTO MODAL (lightbox) -->
+<div class="foto-modal" id="fotoModal">
+  <span class="foto-close" onclick="closeFoto()">✕</span>
+  <img id="fotoModalImg" src="" alt="Foto patroli">
+  <div class="foto-cap" id="fotoModalCap"></div>
+</div>
+
+<nav class="mnav" id="mnav">
+  <button class="mnav-btn active" data-v="map-view"><span class="mi">🗺</span>Peta</button>
+  <button class="mnav-btn" data-v="stats-view"><span class="mi">📊</span>Statistik</button>
+  <button class="mnav-btn" data-v="patrol-view"><span class="mi">🚶</span>Patroli</button>
+  <button class="mnav-btn" data-v="findings-view"><span class="mi">🔍</span>Temuan</button>
+  <button class="mnav-btn" data-v="gallery-view"><span class="mi">📷</span>Foto</button>
+</nav>
+
+<!-- ═══ KONFIGURASI GOOGLE SHEETS ═══ -->
+<script>
+// ─── Ganti SHEET_ID setelah setup Google Sheets ─────────────────────
+const SHEET_ID = 'GANTI_DENGAN_ID_SPREADSHEET_KAMU';
+const SHEET_SESI   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const SHEET_TEMUAN = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1`;
+
+// ─── Chart & KPI data (embed kecil, jarang berubah) ────────────────
+const STATIC_CHART = {"kpi": {"total_sessions": 8, "target_sessions_per_year": 30, "total_hari_patroli": 39, "total_area_ha": 3100.0, "total_resort_ha": 28758.999, "pct_cakupan": 10.78, "total_temuan": 161, "total_ancaman": 1, "total_personel_sesi": 44, "unique_masyarakat": 19}, "trend": {"labels": ["Y1Q1", "Y1Q2", "Y1Q3", "Y1Q4", "Y2Q1", "Y2Q2", "Y2Q3", "Y2Q4", "Y3Q1", "Y3Q2", "Y3Q3", "Y3Q4"], "sesi": [0, 0, 2, 3, 2, 1, 0, 0, 0, 0, 0, 0], "target_per_kuartal": 7.5}, "per_desa": [{"id_desa": "DS001", "nama": "Ilomata", "sesi": 5, "hari": 26, "area_ha": 1800.0, "temuan": 110, "ancaman": 1, "personel_masyarakat_unik": 12}, {"id_desa": "DS002", "nama": "Suka Makmur", "sesi": 3, "hari": 13, "area_ha": 1300.0, "temuan": 51, "ancaman": 0, "personel_masyarakat_unik": 6}], "top_species": [{"nama": "Anoa Dataran Rendah - Bubalus depressicornis", "jumlah": 43}, {"nama": "Julang Sulawesi - Rhyticeros cassidix", "jumlah": 29}, {"nama": "Monyet Gorontalo - Macaca nigrescens", "jumlah": 13}, {"nama": "Burung", "jumlah": 7}, {"nama": "Rangkong", "jumlah": 7}, {"nama": "Babi Hutan Sulawesi - Sus celebensis", "jumlah": 5}, {"nama": "Babirusa Sulawesi - Babyrousa celebensis", "jumlah": 5}, {"nama": "Anoa Pegunungan - Bubalus quarlesi", "jumlah": 5}, {"nama": "Reptil", "jumlah": 4}, {"nama": "Monyet Hitam Sulawesi - Macaca nigra", "jumlah": 3}], "cat0": [{"kategori": "Patroli - Satwa Liar", "jumlah": 142}, {"kategori": "Aktivitas Manusia", "jumlah": 8}, {"kategori": "Patroli - Fitur", "jumlah": 6}, {"kategori": "Patroli - Tumbuhan", "jumlah": 5}], "cat1": [{"kategori": "Tanda Satwa", "jumlah": 74}, {"kategori": "Perjumpaan Satwa", "jumlah": 59}, {"kategori": "Satwa Mati", "jumlah": 9}, {"kategori": "Fitur Alami", "jumlah": 6}, {"kategori": "Pembukaan Lahan", "jumlah": 1}, {"kategori": "Penangkapan Ikan", "jumlah": 1}, {"kategori": "Pengambilan HHBK", "jumlah": 1}], "findings": [{"id_obs": "OBS_0486", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-14", "lat": 0.705429, "lon": 123.154743, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 ekor julang Sulawesi terdengar suaranya tidak dapat di dokumetasikan"}, {"id_obs": "OBS_0487", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-14", "lat": 0.705429, "lon": 123.154743, "kategori0": "Aktivitas Manusia", "kategori1": "Pembukaan Lahan", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": 0.5, "is_ancaman": true, "pelanggaran": "Pembukaan Lahan Tanpa Izin", "keterangan": "Pembukaan lahan terus bertambah"}, {"id_obs": "OBS_0488", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.715668, "lon": 123.156044, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Bajing Kerdil Sulawesi - Prosciurillus murinus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 ekor bajing kerdil Sulawesi"}, {"id_obs": "OBS_0489", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.715668, "lon": 123.156044, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Nama Burung belum diketahui. Lokasi Bese"}, {"id_obs": "OBS_0490", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.718713, "lon": 123.160927, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Perjumpaan di Bese adalah lokasi yang dinamakan oleh masyarakat. Dan tidak didokumentasikan"}, {"id_obs": "OBS_0491", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.719094, "lon": 123.163424, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Babi Hutan Sulawesi - Sus celebensis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Belum pasti Babi Hutan atau Babi Rusa"}, {"id_obs": "OBS_0492", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.71892, "lon": 123.16419, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Bisa dijadikan untuk wisata minat khusus"}, {"id_obs": "OBS_0493", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.718461, "lon": 123.164562, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "2 Tapak Anoa"}, {"id_obs": "OBS_0494", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-15", "lat": 0.719215, "lon": 123.163452, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Babirusa Sulawesi - Babyrousa celebensis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Panjang 3.20 M dan lebar 2.24 M dengan tinggi kubangan 80 Cm"}, {"id_obs": "OBS_0495", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714948, "lon": 123.156807, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0496", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714605, "lon": 123.157065, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Suara monyet kawanan"}, {"id_obs": "OBS_0497", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714443, "lon": 123.157455, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0498", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714136, "lon": 123.15752, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kotoran burung yang belum diketahu"}, {"id_obs": "OBS_0499", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714136, "lon": 123.15752, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0500", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714136, "lon": 123.15752, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Babirusa Sulawesi - Babyrousa celebensis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0501", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.713791, "lon": 123.158632, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0502", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.713485, "lon": 123.158617, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0503", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.713485, "lon": 123.158617, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0504", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.714628, "lon": 123.158418, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0505", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-16", "lat": 0.715673, "lon": 123.156089, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 5.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Jumlah Monyet Banyak"}, {"id_obs": "OBS_0506", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-17", "lat": 0.718994, "lon": 123.154371, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0507", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-17", "lat": 0.72282, "lon": 123.154359, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 Jenis Burung tapi tidak diketahui dan tidak dapat di dokumentasikan"}, {"id_obs": "OBS_0508", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-17", "lat": 0.723147, "lon": 123.156231, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Babirusa Sulawesi - Babyrousa celebensis", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kerangka yang ditemukan hanya kerangka Kepala Babi Rusa, Menurut salah satu petugas yang merupakan warga Ilomata, bahwa itu hasil buruan karena hanya sisa kerangka kepala yang ada. Sedangkan kerangka tubuh lainnya tidak ada"}, {"id_obs": "OBS_0509", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-17", "lat": 0.723367, "lon": 123.157379, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Babirusa Sulawesi - Babyrousa celebensis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tinggi Kubangan 70 Cm, Panjang 2.60 CM dan Lebar 1.90 Cm"}, {"id_obs": "OBS_0510", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-18", "lat": 0.718791, "lon": 123.166528, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0511", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-19", "lat": 0.715145, "lon": 123.154169, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0512", "id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-19", "lat": 0.705435, "lon": 123.154698, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Babi Hutan Sulawesi - Sus celebensis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Hanya sisa kerangka kepala"}, {"id_obs": "OBS_0513", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-22", "lat": 0.644012, "lon": 123.19264, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat di dokumentasikan"}, {"id_obs": "OBS_0514", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-22", "lat": 0.63601, "lon": 123.217974, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Green Viper Ras Sulawesi -Tropidolaemus subannulantus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0515", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.63631, "lon": 123.21876, "kategori0": "Aktivitas Manusia", "kategori1": "Penangkapan Ikan", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": "Penangkapan ikan tanpa izin", "keterangan": "Bekas pondok"}, {"id_obs": "OBS_0516", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.637925, "lon": 123.222608, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0517", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638014, "lon": 123.222574, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": 4.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Belum jelas nama burung. Menurut tim adalah jalak kebo"}, {"id_obs": "OBS_0518", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638087, "lon": 123.223486, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Musang Sulawesi - Macrogalidia musschenbroekii", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0519", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638149, "lon": 123.224679, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tim berjumpa monyet gorontalo tapi tidak dapat didokumentasikan"}, {"id_obs": "OBS_0520", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638054, "lon": 123.225384, "kategori0": "Patroli - Tumbuhan", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": "Ekaliptus - Eucalyptus spp", "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Sekitar 80 tahun"}, {"id_obs": "OBS_0521", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.637084, "lon": 123.228803, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Elang Hitam - Ictinaetus malaiensis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "tidak dapat di dokumentasikan"}, {"id_obs": "OBS_0522", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.637005, "lon": 123.22937, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0523", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.637485, "lon": 123.231656, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Elang-alap Ekor Totol - Accipiter trinotatus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0524", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638619, "lon": 123.232421, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 10.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat di foto"}, {"id_obs": "OBS_0525", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "lat": 0.638847, "lon": 123.222859, "kategori0": "Aktivitas Manusia", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0526", "id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-24", "lat": 0.629572, "lon": 123.215485, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0527", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.713432832658389, "lon": 123.216340281698, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Untuk wisata minat khusus"}, {"id_obs": "OBS_0528", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.716289484901704, "lon": 123.216058742192, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Untuk wisata minat khusus"}, {"id_obs": "OBS_0529", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.71583859856807, "lon": 123.218045589005, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0530", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.715715386546834, "lon": 123.219288002483, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0531", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.714925983789826, "lon": 123.219024495881, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0532", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.714391961055957, "lon": 123.219149221161, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0533", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.712941432897224, "lon": 123.218678839297, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0534", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.711854864106845, "lon": 123.219099185345, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0535", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-13", "lat": 0.712019546976046, "lon": 123.219322389942, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0536", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.697847, "lon": 123.191668, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 Monyet Gorontalo"}, {"id_obs": "OBS_0537", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.694041, "lon": 123.199674, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0538", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.694334, "lon": 123.202679, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Sulit di Foto terhalang oleh ranting pohon"}, {"id_obs": "OBS_0539", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.695218, "lon": 123.208941, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Musang Sulawesi - Macrogalidia musschenbroekii", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0540", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.704315, "lon": 123.218069, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Reptil", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Lokasi Oile"}, {"id_obs": "OBS_0541", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-11", "lat": 0.710339, "lon": 123.217066, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0542", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.71153, "lon": 123.22052, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0543", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.71096, "lon": 123.221, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0544", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.7113, "lon": 123.221662, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 suara rangkong"}, {"id_obs": "OBS_0545", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.711124, "lon": 123.221703, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 ekor"}, {"id_obs": "OBS_0546", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.710971, "lon": 123.223609, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tapak dan Kotoran"}, {"id_obs": "OBS_0547", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.710971, "lon": 123.223609, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kotoran"}, {"id_obs": "OBS_0548", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.710581, "lon": 123.224006, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0549", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.710965, "lon": 123.224014, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 ekor"}, {"id_obs": "OBS_0550", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-12", "lat": 0.711683, "lon": 123.223647, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Lokasi Lelenggela, Sulit di Foto"}, {"id_obs": "OBS_0551", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.713571351738752, "lon": 123.22278467749, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 3.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0552", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.714166196272694, "lon": 123.223647678464, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Ular jali sulawesi - Ptyas dipsas", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0553", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.715914744792409, "lon": 123.224707617491, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0554", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.71817966812649, "lon": 123.225982593271, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0555", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.718403829134753, "lon": 123.225448653942, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0556", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.717879, "lon": 123.224342, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Pungguk Oker - Ninox ochracea", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0557", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.71779, "lon": 123.223971, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0558", "id_patroli": "SP_011", "id_desa": "DS001", "tanggal": "2025-10-14", "lat": 0.715243, "lon": 123.221949, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 6.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0559", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709589, "lon": 123.193786, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0560", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709469, "lon": 123.194056, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tapak Anoa"}, {"id_obs": "OBS_0561", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709643, "lon": 123.194537, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0562", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709643, "lon": 123.194537, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tapak anoa"}, {"id_obs": "OBS_0563", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709796, "lon": 123.194866, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0564", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.70999, "lon": 123.195219, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Babi Hutan Sulawesi - Sus celebensis", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Virus ASF (African Swine Fever)"}, {"id_obs": "OBS_0565", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.709902, "lon": 123.195443, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0566", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.70977, "lon": 123.195596, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "1 Ekor Julang Sulawesi"}, {"id_obs": "OBS_0567", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.71011, "lon": 123.195862, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0568", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.710502, "lon": 123.19608, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0569", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.711408, "lon": 123.196197, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tapak anoa"}, {"id_obs": "OBS_0570", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-27", "lat": 0.71199, "lon": 123.196331, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0571", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.709876, "lon": 123.192897, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0572", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.709876, "lon": 123.192897, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0573", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.711508, "lon": 123.190594, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat di dokumentasikan"}, {"id_obs": "OBS_0574", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.712342, "lon": 123.190522, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0575", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.713972, "lon": 123.190383, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0576", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.715002, "lon": 123.190145, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0577", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.715002, "lon": 123.190145, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0578", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.715286, "lon": 123.190692, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat di dokumentasikan"}, {"id_obs": "OBS_0579", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-28", "lat": 0.714584, "lon": 123.19153, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0580", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713014, "lon": 123.194401, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapa didokumentasikan"}, {"id_obs": "OBS_0581", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713586, "lon": 123.194231, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Elang Hitam - Ictinaetus malaiensis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0582", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713678, "lon": 123.194266, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0583", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713678, "lon": 123.194266, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0584", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713678, "lon": 123.194266, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "jarak sekitar kurang lebih 100 meter"}, {"id_obs": "OBS_0585", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.714156, "lon": 123.19534, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0586", "id_patroli": "SP_012", "id_desa": "DS001", "tanggal": "2025-11-29", "lat": 0.713281, "lon": 123.195142, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Ular jali sulawesi - Ptyas dipsas", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kepla hilang"}, {"id_obs": "OBS_0587", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-21", "lat": 0.6841, "lon": 123.210657, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0588", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-21", "lat": 0.685443, "lon": 123.210941, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak Dapat Didokumentasikan"}, {"id_obs": "OBS_0589", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-21", "lat": 0.686775, "lon": 123.213645, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 6.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0590", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.677834, "lon": 123.2135, "kategori0": "Aktivitas Manusia", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0591", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.677941, "lon": 123.213616, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Reptil", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Bagian Kepala Hilang"}, {"id_obs": "OBS_0592", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.677468, "lon": 123.214795, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Reptil", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0593", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.67609, "lon": 123.216073, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Reptil", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kulit Ular"}, {"id_obs": "OBS_0594", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.673256, "lon": 123.21708, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Babi Hutan Sulawesi - Sus celebensis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Kerangka Kepala"}, {"id_obs": "OBS_0595", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.672818, "lon": 123.215081, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0596", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "lat": 0.674257, "lon": 123.212212, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Green Viper Ras Sulawesi -Tropidolaemus subannulantus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0597", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-23", "lat": 0.68025, "lon": 123.21406, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak Dapat Didokumentasikan"}, {"id_obs": "OBS_0598", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-23", "lat": 0.680176, "lon": 123.214961, "kategori0": "Aktivitas Manusia", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0599", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-23", "lat": 0.683668, "lon": 123.215889, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0600", "id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-23", "lat": 0.678889, "lon": 123.21509, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak Dapat Didokumentasikan"}, {"id_obs": "OBS_0601", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.718964, "lon": 123.167502, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Pegunungan - Bubalus quarlesi", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tim Menemukan Tapak Kaki Anoa"}, {"id_obs": "OBS_0602", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.725133, "lon": 123.17284, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Pegunungan - Bubalus quarlesi", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Jejak Kaki Berupa Tapak Anoa"}, {"id_obs": "OBS_0603", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.728275, "lon": 123.172994, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Bisa untuk objek wisata"}, {"id_obs": "OBS_0604", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.729407, "lon": 123.172606, "kategori0": "Patroli - Fitur", "kategori1": "Fitur Alami", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Bisa Jadi Potensi Wisata"}, {"id_obs": "OBS_0605", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.730197, "lon": 123.172122, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tim Mendengar Suara Burung Julang Sulawesi"}, {"id_obs": "OBS_0606", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.730603, "lon": 123.171032, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Hitam Sulawesi - Macaca nigra", "jenis_tanaman": null, "jumlah": 3.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0607", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.730603, "lon": 123.171032, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Kadalan sulawesi - Rhamphococcys calyorhynchus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0608", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-25", "lat": 0.730603, "lon": 123.171032, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0609", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-26", "lat": 0.718902, "lon": 123.167002, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Pegunungan - Bubalus quarlesi", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0610", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-26", "lat": 0.719479, "lon": 123.166384, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Pegunungan - Bubalus quarlesi", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0611", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-26", "lat": 0.720465, "lon": 123.165976, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Pegunungan - Bubalus quarlesi", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tanda Satwa Berupa Jejak Tergelincir"}, {"id_obs": "OBS_0612", "id_patroli": "SP_014", "id_desa": "DS001", "tanggal": "2026-01-26", "lat": 0.720887, "lon": 123.162622, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Cekakak Hutan Tunggir Hijau - Actenoides monachus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0613", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-12", "lat": 0.6943, "lon": 123.18363, "kategori0": "Aktivitas Manusia", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0614", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-13", "lat": 0.690243, "lon": 123.187024, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Mock viper biasa - Psammodynastes pulverulentus pulverulentus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0615", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-13", "lat": 0.690484, "lon": 123.188649, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak Dapat Didokumentasikan"}, {"id_obs": "OBS_0616", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-14", "lat": 0.692247, "lon": 123.183735, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0617", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-14", "lat": 0.691068, "lon": 123.182578, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Walik kembang - Ptilinopus melanospilus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0618", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-14", "lat": 0.689053, "lon": 123.183437, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Julang Sulawesi - Rhyticeros cassidix", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0619", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-14", "lat": 0.690137, "lon": 123.184879, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Hitam Sulawesi - Macaca nigra", "jenis_tanaman": null, "jumlah": 8.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0620", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-14", "lat": 0.690367, "lon": 123.185215, "kategori0": "Patroli - Satwa Liar", "kategori1": "Satwa Mati", "jenis_satwa": "Babi Hutan Sulawesi - Sus celebensis", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0621", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-15", "lat": 0.693655, "lon": 123.190147, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Srigunting sulawesi - Dicrurus montanus", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0622", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-15", "lat": 0.695071, "lon": 123.190635, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Hitam Sulawesi - Macaca nigra", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0623", "id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-15", "lat": 0.697591, "lon": 123.188108, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Bajing Kerdil Sulawesi - Prosciurillus murinus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0624", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.664649, "lon": 123.205879, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": 2.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak didokemntasikan"}, {"id_obs": "OBS_0625", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.664649, "lon": 123.205879, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Burung", "jenis_tanaman": null, "jumlah": 5.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0626", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.664649, "lon": 123.205879, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0627", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.66548, "lon": 123.211228, "kategori0": "Aktivitas Manusia", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0628", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.663984, "lon": 123.212624, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": 4.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0629", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.664699, "lon": 123.214547, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0630", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.664699, "lon": 123.214547, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Elang-alap Cokelat - Accipiter fasciatus", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0631", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.66652, "lon": 123.217191, "kategori0": "Patroli - Tumbuhan", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": "Saninten - Castanopsis argentea", "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0632", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "lat": 0.667603, "lon": 123.218037, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak Dapat didokumentasikan"}, {"id_obs": "OBS_0633", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.665453, "lon": 123.201399, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Bajing Besar Sulawesi - Rubrisciurus rubriventer", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak didokumentasikan"}, {"id_obs": "OBS_0634", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.665453, "lon": 123.201399, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tanda Satwa Berupa Suara Monyet,Jumlah 5 ekor"}, {"id_obs": "OBS_0635", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.66373, "lon": 123.202682, "kategori0": "Aktivitas Manusia", "kategori1": "Pengambilan HHBK", "jenis_satwa": null, "jenis_tanaman": null, "jumlah": 4.0, "is_ancaman": false, "pelanggaran": "Pengambilan HHBK Tanpa Izin", "keterangan": null}, {"id_obs": "OBS_0636", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.66254, "lon": 123.202625, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Anoa Dataran Rendah - Bubalus depressicornis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0637", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.662157, "lon": 123.202454, "kategori0": "Patroli - Tumbuhan", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": "Agatis - Agathis spp", "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0638", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.662157, "lon": 123.202454, "kategori0": "Patroli - Tumbuhan", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": "Lasi - Adina fagifolia", "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0639", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.661645, "lon": 123.203195, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0640", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "lat": 0.661116, "lon": 123.206287, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Pelatuk kelabu sulawesi - Mulleripicus fulvus", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0641", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.667804, "lon": 123.203258, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Elang-alap Cokelat - Accipiter fasciatus", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": "tidak didokumentasikan"}, {"id_obs": "OBS_0642", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.667951, "lon": 123.203597, "kategori0": "Patroli - Tumbuhan", "kategori1": null, "jenis_satwa": null, "jenis_tanaman": "Kayu keras", "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0643", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.668399, "lon": 123.204184, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Babirusa Sulawesi - Babyrousa celebensis", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0644", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.669308, "lon": 123.206515, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": 1.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}, {"id_obs": "OBS_0645", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.667178, "lon": 123.206066, "kategori0": "Patroli - Satwa Liar", "kategori1": "Tanda Satwa", "jenis_satwa": "Rangkong", "jenis_tanaman": null, "jumlah": null, "is_ancaman": false, "pelanggaran": null, "keterangan": null}, {"id_obs": "OBS_0646", "id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-28", "lat": 0.666361, "lon": 123.203727, "kategori0": "Patroli - Satwa Liar", "kategori1": "Perjumpaan Satwa", "jenis_satwa": "Monyet Gorontalo - Macaca nigrescens", "jenis_tanaman": null, "jumlah": 3.0, "is_ancaman": false, "pelanggaran": null, "keterangan": "Tidak dapat didokumentasikan"}], "personel_summary": [{"KATEGORI": "JAPESDA", "GENDER (auto)": "Laki-Laki", "jumlah": 17}, {"KATEGORI": "Masyarakat", "GENDER (auto)": "Laki-Laki", "jumlah": 26}, {"KATEGORI": "Staf/TNBNW", "GENDER (auto)": "Laki-Laki", "jumlah": 1}], "threats": [{"id_patroli": "SP_009", "id_desa": "DS001", "tanggal": "2025-09-14", "kategori1": "Pembukaan Lahan", "pelanggaran": "Pembukaan Lahan Tanpa Izin", "is_ancaman": true, "keterangan": "Pembukaan lahan terus bertambah"}, {"id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "kategori1": "Penangkapan Ikan", "pelanggaran": "Penangkapan ikan tanpa izin", "is_ancaman": false, "keterangan": "Bekas pondok"}, {"id_patroli": "SP_010", "id_desa": "DS002", "tanggal": "2025-09-23", "kategori1": "-", "pelanggaran": "-", "is_ancaman": false, "keterangan": "-"}, {"id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-22", "kategori1": "-", "pelanggaran": "-", "is_ancaman": false, "keterangan": "-"}, {"id_patroli": "SP_013", "id_desa": "DS002", "tanggal": "2025-12-23", "kategori1": "-", "pelanggaran": "-", "is_ancaman": false, "keterangan": "-"}, {"id_patroli": "SP_015", "id_desa": "DS001", "tanggal": "2026-02-12", "kategori1": "-", "pelanggaran": "-", "is_ancaman": false, "keterangan": "-"}, {"id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-26", "kategori1": "-", "pelanggaran": "-", "is_ancaman": false, "keterangan": "-"}, {"id_patroli": "SP_016", "id_desa": "DS002", "tanggal": "2026-04-27", "kategori1": "Pengambilan HHBK", "pelanggaran": "Pengambilan HHBK Tanpa Izin", "is_ancaman": false, "keterangan": "-"}], "sessions": [{"id_patroli": "SP_009", "tahun": "Y1", "kuartal": "Q3", "id_desa": "DS001", "nama_desa": "Ilomata", "tgl_mulai": "2025-09-14", "tgl_selesai": "2025-09-19", "hari": 6, "leader": "Alis Mooduto", "personel": 5, "area_ha": 300.0, "cakupan_pct": 1.043151745, "temuan": 27, "aktv_manusia": 1, "tanda_satwa": 18, "perjumpaan_satwa": 5, "satwa_mati": 2, "ancaman": 1}, {"id_patroli": "SP_010", "tahun": "Y1", "kuartal": "Q3", "id_desa": "DS002", "nama_desa": "Suka Makmur", "tgl_mulai": "2025-09-22", "tgl_selesai": "2025-09-24", "hari": 3, "leader": "Rahman Mooduto", "personel": 5, "area_ha": 400.0, "cakupan_pct": 1.390868994, "temuan": 14, "aktv_manusia": 2, "tanda_satwa": 4, "perjumpaan_satwa": 7, "satwa_mati": 0, "ancaman": 0}, {"id_patroli": "SP_011", "tahun": "Y1", "kuartal": "Q4", "id_desa": "DS001", "nama_desa": "Ilomata", "tgl_mulai": "2025-10-11", "tgl_selesai": "2025-10-15", "hari": 5, "leader": "Harson Mooduto", "personel": 6, "area_ha": 800.0, "cakupan_pct": 2.781737987, "temuan": 32, "aktv_manusia": 0, "tanda_satwa": 19, "perjumpaan_satwa": 9, "satwa_mati": 1, "ancaman": 0}, {"id_patroli": "SP_012", "tahun": "Y1", "kuartal": "Q4", "id_desa": "DS001", "nama_desa": "Ilomata", "tgl_mulai": "2025-11-26", "tgl_selesai": "2025-11-30", "hari": 5, "leader": "Alis Mooduto", "personel": 6, "area_ha": 100.0, "cakupan_pct": 0.3477172484, "temuan": 28, "aktv_manusia": 0, "tanda_satwa": 16, "perjumpaan_satwa": 10, "satwa_mati": 2, "ancaman": 0}, {"id_patroli": "SP_013", "tahun": "Y1", "kuartal": "Q4", "id_desa": "DS002", "nama_desa": "Suka Makmur", "tgl_mulai": "2025-12-20", "tgl_selesai": "2025-12-24", "hari": 5, "leader": "Nini Adam", "personel": 5, "area_ha": 500.0, "cakupan_pct": 1.738586242, "temuan": 14, "aktv_manusia": 2, "tanda_satwa": 3, "perjumpaan_satwa": 6, "satwa_mati": 3, "ancaman": 0}, {"id_patroli": "SP_014", "tahun": "Y2", "kuartal": "Q1", "id_desa": "DS001", "nama_desa": "Ilomata", "tgl_mulai": "2026-01-24", "tgl_selesai": "2026-01-28", "hari": 5, "leader": "Rahman K Supu", "personel": 5, "area_ha": 500.0, "cakupan_pct": 1.738586242, "temuan": 12, "aktv_manusia": 0, "tanda_satwa": 6, "perjumpaan_satwa": 4, "satwa_mati": 0, "ancaman": 0}, {"id_patroli": "SP_015", "tahun": "Y2", "kuartal": "Q1", "id_desa": "DS001", "nama_desa": "Ilomata", "tgl_mulai": "2026-02-12", "tgl_selesai": "2026-02-16", "hari": 5, "leader": "Arman Usman", "personel": 6, "area_ha": 100.0, "cakupan_pct": 0.3477172484, "temuan": 11, "aktv_manusia": 1, "tanda_satwa": 0, "perjumpaan_satwa": 9, "satwa_mati": 1, "ancaman": 0}, {"id_patroli": "SP_016", "tahun": "Y2", "kuartal": "Q2", "id_desa": "DS002", "nama_desa": "Suka Makmur", "tgl_mulai": "2026-04-25", "tgl_selesai": "2026-04-29", "hari": 5, "leader": "Amir Ntungo", "personel": 6, "area_ha": 400.0, "cakupan_pct": 1.390868994, "temuan": 23, "aktv_manusia": 2, "tanda_satwa": 8, "perjumpaan_satwa": 9, "satwa_mati": 0, "ancaman": 0}], "flag_jumlah_kosong": 74};
+</script>
+
+<!-- ═══ MAIN LOGIC ═══ -->
+<script>
+// ── FOTO helpers ─────────────────────────────────────────────────
+function driveUrl(raw){
+  if(!raw||raw.trim()==='') return '';
+  // Convert Drive share link ke direct img URL
+  // Input:  https://drive.google.com/file/d/{ID}/view?usp=sharing
+  // Output: https://drive.google.com/uc?export=view&id={ID}
+  const m = raw.match(/\/d\/([a-zA-Z0-9_\-]+)/);
+  if(m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // Sudah berupa URL direct (https://lh3... dll)
+  if(raw.startsWith('http')) return raw;
+  return '';
+}
+
+function openFoto(url, caption){
+  const modal = document.getElementById('fotoModal');
+  document.getElementById('fotoModalImg').src = url;
+  document.getElementById('fotoModalCap').textContent = caption || '';
+  modal.classList.add('open');
+}
+function closeFoto(){
+  const modal = document.getElementById('fotoModal');
+  modal.classList.remove('open');
+  document.getElementById('fotoModalImg').src = '';
+}
+// Tutup lightbox dengan klik backdrop
+document.getElementById('fotoModal').addEventListener('click', function(e){
+  if(e.target === this) closeFoto();
+});
+
+function makeFotoThumb(fotoRaw, caption){
+  const url = driveUrl(fotoRaw);
+  if(!url) return '';
+  return `<img class="foto-thumb" src="${url}" alt="Foto"
+    onerror="this.style.display='none'"
+    onclick="openFoto('${url}','${(caption||'').replace(/'/g,"\'")}')" 
+    title="Klik untuk perbesar">`;
+}
+
+function makeFotoStrip(urls, labels){
+  if(!urls||urls.length===0) return '<div class="no-foto">Belum ada foto</div>';
+  const imgs = urls.map((u,i)=>{
+    const direct = driveUrl(u);
+    if(!direct) return '';
+    return `<img src="${direct}" alt="${labels?.[i]||'foto'}" title="${labels?.[i]||'foto'}"
+      onerror="this.parentNode.removeChild(this)"
+      onclick="openFoto('${direct}','${(labels?.[i]||'').replace(/'/g,"\'")}')">`;
+  }).join('');
+  return `<div class="foto-strip">${imgs}</div>`;
+}
+
+const C = {green:'#5fbf77',teal:'#4fb4c4',amber:'#e3a23c',blue:'#7d9fd6',red:'#e0635a',purple:'#9b8fea',text:'#8ca89f',grid:'rgba(255,255,255,.07)'};
+const TC = {SP_009:'#3b82f6',SP_010:'#2dd4bf',SP_011:'#818cf8',SP_012:'#6366f1',SP_013:'#06b6d4',SP_014:'#a78bfa',SP_015:'#c084fc',SP_016:'#34d399'};
+const ZC = {'Zona Inti':'#e05a6a','Zona Rimba':'#f5a623','Zona Rehabilitasi':'#7d9fd6','Zona Pemanfaatan':'#5fbf77'};
+const CL = {'Patroli - Satwa Liar':'Satwa Liar','Aktivitas Manusia':'Aktivitas Manusia','Patroli - Fitur':'Fitur Alam','Patroli - Tumbuhan':'Tumbuhan'};
+const CC = {'Patroli - Satwa Liar':C.green,'Aktivitas Manusia':C.red,'Patroli - Fitur':C.blue,'Patroli - Tumbuhan':C.teal};
+const DESA_NAME = {DS001:'Ilomata',DS002:'Suka Makmur'};
+
+// ─── Navigation ────────────────────────────────────────────────────
+function switchView(vid){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById(vid).classList.add('on');
+  document.querySelectorAll('[data-v]').forEach(b=>b.classList.toggle('active',b.dataset.v===vid));
+  if(vid==='map-view') setTimeout(()=>map&&map.invalidateSize(),100);
+  if(window.innerWidth<=768) closeSB();
+}
+document.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.v)));
+function openSB() { document.getElementById('sidebar').classList.add('open'); document.getElementById('sbBack').classList.add('on'); }
+function closeSB(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbBack').classList.remove('on'); }
+document.getElementById('hbtn').addEventListener('click',()=>document.getElementById('sidebar').classList.contains('open')?closeSB():openSB());
+document.getElementById('sbBack').addEventListener('click',closeSB);
+
+// ─── CSV Parser ───────────────────────────────────────────────────
+function parseCSV(txt){
+  const lines=txt.trim().split('\n');
+  const hdrs=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line=>{
+    const vals=[]; let cur='',inQ=false;
+    for(const c of line){ if(c==='"'){inQ=!inQ}else if(c===','&&!inQ){vals.push(cur.trim());cur=''}else cur+=c; }
+    vals.push(cur.trim());
+    const o={}; hdrs.forEach((h,i)=>o[h]=vals[i]??''); return o;
+  });
+}
+
+// ─── Progress bar helper ──────────────────────────────────────────
+function setLoadProg(pct, txt){
+  const bar=document.getElementById('mapProgBar');
+  const lbl=document.getElementById('mapLoadTxt');
+  if(bar) bar.style.width=pct+'%';
+  if(lbl) lbl.textContent=txt;
+}
+
+// ─── Fetch Google Sheets data ─────────────────────────────────────
+async function fetchSheets(){
+  const configured = SHEET_ID !== 'GANTI_DENGAN_ID_SPREADSHEET_KAMU';
+  if(!configured){
+    document.getElementById('loadStatus').innerHTML='📂 Mode offline (fallback)';
+    return null;
+  }
+  try{
+    const [rS, rT] = await Promise.all([
+      fetch(SHEET_SESI).then(r=>r.text()),
+      fetch(SHEET_TEMUAN).then(r=>r.text()),
+    ]);
+    return { sessions: parseCSV(rS), temuan: parseCSV(rT) };
+  }catch(e){
+    console.warn('Sheets fetch error:', e);
+    return null;
+  }
+}
+
+// ─── Load semua data GeoJSON dari data/ ──────────────────────────
+async function loadAllData(){
+  const base = window.location.pathname.replace(/\/[^\/]*$/, '/');
+  const urls = {
+    tracks  : base + 'data/tracks.geojson',
+    findings: base + 'data/findings.geojson',
+    grid    : base + 'data/grid.geojson',
+    zonasi  : base + 'data/zonasi.geojson',
+    tnbnw   : base + 'data/tnbnw.geojson',
+    meta    : base + 'data/meta.json',
+  };
+
+  const results = {};
+  const keys = Object.keys(urls);
+  for(let i=0; i<keys.length; i++){
+    const k = keys[i];
+    setLoadProg(10 + (i/keys.length)*70, `Memuat ${k}...`);
+    try{
+      const r = await fetch(urls[k]);
+      results[k] = await r.json();
+    }catch(e){
+      console.error(`Gagal load ${k}:`, e);
+      results[k] = k==='meta' ? {} : {type:'FeatureCollection',features:[]};
+    }
+  }
+  return results;
+}
+
+// ─── Init MAP ─────────────────────────────────────────────────────
+let map, trackLayers={}, mrkGrps={};
+
+function initMap(){ 
+  const TILES = {
+    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}),
+    sat : L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles &copy; Esri',maxZoom:19}),
+    osm : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19}),
+  };
+  map = L.map('map',{zoomControl:false}).setView([0.692,123.215],12);
+  TILES.dark.addTo(map);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  let curBm='dark';
+  document.querySelectorAll('.bm').forEach(b=>{
+    b.addEventListener('click',()=>{
+      map.removeLayer(TILES[curBm]); curBm=b.dataset.bm; TILES[curBm].addTo(map);
+      document.querySelectorAll('.bm').forEach(x=>x.classList.toggle('active',x===b));
+    });
+  });
+  return TILES;
+}
+
+function renderLayers(data){
+  // TNBNW
+  const tnbnwLayer=L.layerGroup().addTo(map);
+  data.tnbnw.features.forEach(f=>L.geoJSON(f,{style:{color:'#7d9fd6',weight:2,fillOpacity:0,opacity:.7,dashArray:'6,4'}}).bindPopup('Taman Nasional Bogani Nani Wartabone').addTo(tnbnwLayer));
+
+  // Zonasi
+  const zonaGroup={inti:L.layerGroup().addTo(map),rehab:L.layerGroup().addTo(map),manfaat:L.layerGroup().addTo(map),rimba:L.layerGroup().addTo(map)};
+  data.zonasi.features.forEach(f=>{
+    const nama=f.properties.nama_zona; const color=ZC[nama]||'#aaa';
+    const grp=nama==='Zona Inti'?zonaGroup.inti:nama==='Zona Rimba'?zonaGroup.rimba:nama==='Zona Pemanfaatan'?zonaGroup.manfaat:zonaGroup.rehab;
+    L.geoJSON(f,{style:{color,weight:1.2,fillColor:color,fillOpacity:.2,opacity:.75}}).bindPopup(`<b>${nama}</b>`).addTo(grp);
+  });
+
+  // Grid
+  const gVis=L.layerGroup().addTo(map); const gUnvis=L.layerGroup().addTo(map);
+  let nVis=0,nUnvis=0;
+  const alphas=[0,.22,.38,.52,.65];
+  data.grid.features.forEach(f=>{
+    const p=f.properties; const vis=p.dikunjungi>0;
+    vis?nVis++:nUnvis++;
+    const style=vis?{color:'#4fb4c4',weight:1.2,fillColor:'#4fb4c4',fillOpacity:alphas[Math.min(p.dikunjungi,4)],opacity:.85}:{color:'#e05a6a',weight:1,fillColor:'#c84040',fillOpacity:.15,opacity:.5,dashArray:'4,3'};
+    L.geoJSON(f,{style}).bindPopup(`<b>Grid ${p.PageName}</b><br>${vis?`Dikunjungi ${p.dikunjungi}× (${p.sp_list.join(', ')})`:'⬜ Belum terpatroli'}`).addTo(vis?gVis:gUnvis);
+    if(vis){const c=L.geoJSON(f).getBounds().getCenter();L.marker(c,{icon:L.divIcon({html:`<span style="font-family:IBM Plex Mono,monospace;font-size:8px;color:rgba(79,180,196,.9)">${p.PageName}</span>`,className:'',iconAnchor:[10,6]}),interactive:false}).addTo(gVis);}
+  });
+  document.getElementById('gridStat').innerHTML=`<span class="gn">${nVis}</span> terpatroli<br><span class="gnt">${nUnvis}</span> belum terpatroli<br><span class="gn">${(nVis/130*100).toFixed(1)}%</span> dari 130 grid`;
+
+  // Tracks
+  const trkListEl=document.getElementById('trkList'); trkListEl.innerHTML='';
+  data.tracks.features.forEach(f=>{
+    const p=f.properties; const color=TC[p.id_patroli]||'#aaa';
+    const segs=f.geometry.type==='MultiLineString'?f.geometry.coordinates:[f.geometry.coordinates];
+    const grp=L.layerGroup().addTo(map);
+    const pop=`<b style="font-family:var(--mono)">${p.id_patroli}</b> · ${p.nama_desa}<br>Leader: <b>${p.leader}</b><br>${p.tgl_mulai} – ${p.tgl_selesai} (${p.hari} hari)<br>Area: <b>${p.area_ha} Ha</b> · ${p.tahun}${p.kuartal}<br><span style="color:var(--text-dim)">${p.n_segmen} segmen · ${(p.n_titik_bersih||0).toLocaleString('id-ID')} titik GPS</span>`;
+    segs.forEach(seg=>{if(seg.length<2)return;L.polyline(seg.map(c=>[c[1],c[0]]),{color,weight:2.3,opacity:.85,smoothFactor:1.2}).bindPopup(pop).addTo(grp);});
+    trackLayers[p.id_patroli]=grp;
+    const row=document.createElement('div'); row.className='trk-row';
+    row.innerHTML=`<span class="tline" style="background:${color}"></span><span class="tid">${p.id_patroli}</span><span class="tloc">${p.nama_desa}</span><span class="tqrt">${p.tahun}${p.kuartal}</span><span class="teye">●</span>`;
+    let on=true;
+    row.onclick=()=>{on=!on;row.querySelector('.teye').textContent=on?'●':'○';row.querySelector('.teye').style.color=on?'var(--green)':'var(--text-faint)';row.style.opacity=on?'1':'.4';on?grp.addTo(map):map.removeLayer(grp);};
+    trkListEl.appendChild(row);
+  });
+
+  // Findings
+  Object.keys(CC).forEach(cat=>mrkGrps[cat]=L.layerGroup().addTo(map));
+  const catCounts={};
+  const CAT_TO_LYR={'Patroli - Satwa Liar':'satwa','Aktivitas Manusia':'am','Patroli - Fitur':'fitur','Patroli - Tumbuhan':'tumbuhan'};
+  data.findings.features.forEach(f=>{
+    const p=f.properties; const coord=f.geometry.coordinates;
+    if(!coord[0]||!coord[1]) return;
+    catCounts[p.kategori0]=(catCounts[p.kategori0]||0)+1;
+    const color=CC[p.kategori0]||'#888'; const isAM=p.kategori0==='Aktivitas Manusia';
+    const r=p.is_ancaman?8:(isAM?7:4.5);
+    const sub1=p.kategori1?` — ${p.kategori1}`:'';
+    const fotoHtml = p.foto_url ? makeFotoThumb(p.foto_url, `${p.kategori1||p.kategori0} · ${p.tanggal}`) : '';
+    const popup=`<b style="font-family:var(--mono)">${p.id_patroli}</b> · ${p.id_desa}<br><span style="color:${color}">${CL[p.kategori0]||p.kategori0}${sub1}</span><br><b>${p.jenis_satwa||p.jenis_tanaman||p.kategori1||'—'}</b>${p.jumlah?` (${p.jumlah})`:''}`+(p.is_ancaman?`<br><span style="color:${C.red}">⚠ ${p.pelanggaran||'Indikasi ancaman'}</span>`:'')+(p.keterangan?`<br><span style="color:var(--text-dim);font-size:11px">${p.keterangan}</span>`:'')+`<br><span style="color:var(--text-faint);font-size:10px">${p.tanggal}</span>${fotoHtml}`;
+    L.circleMarker([coord[1],coord[0]],{radius:r,color:p.is_ancaman?C.red:color,fillColor:color,fillOpacity:p.is_ancaman?.95:.65,weight:p.is_ancaman?2.5:1}).bindPopup(popup).addTo(mrkGrps[p.kategori0]);
+  });
+  ['satwa','am','fitur','tumbuhan'].forEach((k,i)=>{
+    const el=document.getElementById(`cnt-${k}`);
+    const cat=Object.keys(CC)[i];
+    if(el) el.textContent=`(${catCounts[cat]||0})`;
+  });
+
+  // Layer toggles
+  const tog=(id,fn)=>document.getElementById(id).addEventListener('change',e=>fn(e.target.checked));
+  tog('lyr-tnbnw', on=>on?tnbnwLayer.addTo(map):map.removeLayer(tnbnwLayer));
+  tog('lyr-inti',   on=>on?zonaGroup.inti.addTo(map):map.removeLayer(zonaGroup.inti));
+  tog('lyr-rehab',  on=>on?zonaGroup.rehab.addTo(map):map.removeLayer(zonaGroup.rehab));
+  tog('lyr-manfaat',on=>on?zonaGroup.manfaat.addTo(map):map.removeLayer(zonaGroup.manfaat));
+  tog('lyr-rimba',  on=>on?zonaGroup.rimba.addTo(map):map.removeLayer(zonaGroup.rimba));
+  tog('lyr-gvis',   on=>on?gVis.addTo(map):map.removeLayer(gVis));
+  tog('lyr-gunvis', on=>on?gUnvis.addTo(map):map.removeLayer(gUnvis));
+  tog('lyr-tracks', on=>Object.values(trackLayers).forEach(g=>on?g.addTo(map):map.removeLayer(g)));
+  const CAT_MAP={'lyr-satwa':'Patroli - Satwa Liar','lyr-am':'Aktivitas Manusia','lyr-fitur':'Patroli - Fitur','lyr-tumbuhan':'Patroli - Tumbuhan'};
+  Object.entries(CAT_MAP).forEach(([id,cat])=>tog(id,on=>{ const g=mrkGrps[cat]; if(g) on?g.addTo(map):map.removeLayer(g); }));
+}
+
+function toggleAllFindings(on){
+  ['lyr-satwa','lyr-am','lyr-fitur','lyr-tumbuhan'].forEach(id=>{const cb=document.getElementById(id);if(cb){cb.checked=on;cb.dispatchEvent(new Event('change'));}});
+}
+
+function renderStats(sessions, sheetData){
+  const tot_sesi   = sessions.length;
+  const tot_hari   = sessions.reduce((s,x)=>s+x.hari,0);
+  const tot_area   = sessions.reduce((s,x)=>s+x.area_ha,0);
+  const tot_temuan = sessions.reduce((s,x)=>s+x.temuan,0);
+  const tot_anc    = sessions.reduce((s,x)=>s+x.ancaman,0);
+  const pct        = (tot_area/28758.999*100).toFixed(2);
+
+  // Badge tahun
+  const tahunSet=[...new Set(sessions.map(s=>s.tahun))].sort();
+  document.getElementById('bdgYear').textContent = tahunSet.join('–');
+  document.getElementById('statsSubtitle').textContent = `Capaian Y${tahunSet.join('–Y')} kawasan penyangga TNBNW vs target logframe`;
+
+  // KPI
+  const kpiDefs=[
+    {l:'Sesi Patroli',v:tot_sesi,s:'/ 30 target/tahun',c:''},
+    {l:'Hari Patroli',v:tot_hari,s:'hari kumulatif',c:'bl'},
+    {l:'Area Tercakup',v:tot_area.toLocaleString('id-ID'),s:`Ha (${pct}% Resort Bolango)`,c:'tl'},
+    {l:'Total Temuan',v:tot_temuan,s:'observasi',c:''},
+    {l:'Indikasi Ancaman',v:tot_anc,s:'kasus',c:'rd'},
+    {l:'DS001 / DS002',v:`${sessions.filter(x=>x.desa==='DS001').length}/${sessions.filter(x=>x.desa==='DS002').length}`,s:'Ilomata / Suka Makmur',c:'am'},
+  ];
+  document.getElementById('kpiStrip').innerHTML=kpiDefs.map(k=>`<div class="kpi ${k.c}"><div class="lbl">${k.l}</div><div class="val">${k.v}</div><div class="sub">${k.s}</div></div>`).join('');
+
+  // Progress
+  const ps=document.getElementById('progSec');
+  const progs=[
+    {l:'Sesi Patroli (kumulatif Y1+Y2)',cur:tot_sesi,tgt:60,unit:'target 2×30 sesi/tahun',c1:C.green,c2:C.teal},
+    {l:'Cakupan Area Resort Bolango',cur:+pct,tgt:25,unit:'target ≥25% akhir Y3 (dok. logframe Q4-Y3: 30%)',c1:C.amber,c2:C.red},
+    {l:'Hari Patroli Kumulatif',cur:tot_hari,tgt:120,unit:'estimasi 60 hari/tahun',c1:C.blue,c2:C.purple},
+  ];
+  ps.innerHTML=progs.map(p=>{const pct2=Math.min(100,(p.cur/p.tgt)*100);return`<div class="prog-lbl-row"><span class="pl">${p.l}</span><span class="pv">${p.cur} / ${p.tgt}</span></div><div class="pbar"><div class="pfill" style="width:${pct2.toFixed(1)}%;--pc1:${p.c1};--pc2:${p.c2}"></div></div><div class="pnote">${pct2.toFixed(1)}% tercapai · ${p.unit}</div>`;}).join('');
+
+  // Charts
+  const cd={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:C.text,font:{family:'IBM Plex Mono',size:10}}}}};
+  const D = STATIC_CHART;
+  const trendSesi=D.trend.labels.map(l=>sessions.filter(s=>`${s.tahun}${s.kuartal}`===l).length||D.trend.sesi[D.trend.labels.indexOf(l)]||0);
+  new Chart(document.getElementById('cTrend'),{type:'bar',data:{labels:D.trend.labels,datasets:[{label:'Realisasi',data:trendSesi,backgroundColor:trendSesi.map(v=>v>0?C.green:'rgba(255,255,255,.04)'),borderRadius:3,order:2},{label:'Target/kuartal',data:D.trend.labels.map(()=>7.5),type:'line',borderColor:C.amber,borderDash:[5,4],pointRadius:0,borderWidth:1.5,order:1}]},options:{...cd,scales:{x:{ticks:{color:C.text,font:{family:'IBM Plex Mono',size:8}},grid:{display:false}},y:{beginAtZero:true,ticks:{color:C.text,stepSize:1},grid:{color:C.grid}}}}});
+  new Chart(document.getElementById('cCat'),{type:'doughnut',data:{labels:D.cat0.map(c=>CL[c.kategori]||c.kategori),datasets:[{data:D.cat0.map(c=>c.jumlah),backgroundColor:D.cat0.map(c=>CC[c.kategori]||'#888'),borderColor:'#111a17',borderWidth:2}]},options:{...cd,plugins:{legend:{position:'bottom',labels:{color:C.text,font:{family:'IBM Plex Mono',size:10},padding:8}}}}});
+  new Chart(document.getElementById('cSpec'),{type:'bar',data:{labels:D.top_species.map(s=>s.nama.split(' - ')[0]),datasets:[{label:'Temuan',data:D.top_species.map(s=>s.jumlah),backgroundColor:C.green,borderRadius:3}]},options:{...cd,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{color:C.text},grid:{color:C.grid}},y:{ticks:{color:C.text,font:{size:10}},grid:{display:false}}}}});
+  const dC={DS001:C.blue,DS002:C.teal};
+  const perDesa={};sessions.forEach(s=>{if(!perDesa[s.desa])perDesa[s.desa]={id:s.desa,nama:DESA_NAME[s.desa]||s.desa,sesi:0,hari:0,temuan:0};perDesa[s.desa].sesi++;perDesa[s.desa].hari+=s.hari;perDesa[s.desa].temuan+=s.temuan;});
+  new Chart(document.getElementById('cDesa'),{type:'bar',data:{labels:['Sesi','Hari','Temuan (÷10)'],datasets:Object.values(perDesa).map(d=>({label:d.nama,data:[d.sesi,d.hari,+(d.temuan/10).toFixed(1)],backgroundColor:dC[d.id]||C.blue,borderRadius:3}))},options:{...cd,scales:{x:{ticks:{color:C.text},grid:{display:false}},y:{beginAtZero:true,ticks:{color:C.text},grid:{color:C.grid}}}}});
+
+  // Insights
+  const nUnvis=STATIC_CHART.per_desa?130-36:94;
+  document.getElementById('insightGrid').innerHTML=`
+    <div class="ic"><h4>👥 Gender Personel Patroli</h4><p>Seluruh <span class="bign">${sessions.reduce((s,x)=>s+x.personel,0)}</span> partisipasi personel masyarakat berjenis kelamin <b>Laki-laki</b> (0% Perempuan).</p><ul><li>Belum ada representasi perempuan dalam data patroli aktual</li><li>Rekomen: dokumentasikan peran dukungan perempuan</li></ul></div>
+    <div class="ic am"><h4>⚠️ Gap Cakupan</h4><p>Grid belum terpatroli: <span class="bign">94</span> dari 130 sel.</p><ul><li>DS002 lebih sedikit sesi dari DS001</li><li>Target 25–30% cakupan akhir Y3 butuh akselerasi</li></ul></div>`;
+}
+
+function renderPatrol(sessions){
+  const pcl=document.getElementById('pcList'); pcl.innerHTML='';
+  const sorted=[...sessions].sort((a,b)=>a.tgl_mulai.localeCompare(b.tgl_mulai));
+  document.getElementById('patrolEy').textContent=`${sorted[0]?.id||'—'} – ${sorted[sorted.length-1]?.id||'—'}`;
+  sorted.forEach(s=>{
+    pcl.innerHTML+=`<div class="pc ${s.desa==='DS002'?'ds2':''}">
+      <div class="pc-hd"><span class="pc-tag">${s.tahun}${s.kuartal} · ${DESA_NAME[s.desa]||s.desa}</span><span class="pc-id">${s.id}</span><span class="pc-date">${s.tgl_mulai}</span></div>
+      <div class="pc-leader">Leader: <b style="color:var(--text)">${s.leader}</b> · ${s.tgl_mulai} – ${s.tgl_selesai}</div>
+      ${s.foto_tim ? `<img class="foto-thumb" src="${driveUrl(s.foto_tim)}" alt="Foto tim ${s.id}" onerror="this.style.display='none'" onclick="openFoto(driveUrl('${s.foto_tim}'),'Tim Patroli ${s.id} · ${s.tgl_mulai}')">` : ''}
+      <div class="pc-stats">
+        <div class="pcs"><div class="sv">${s.hari}</div><div class="sk">hari</div></div>
+        <div class="pcs"><div class="sv">${s.personel}</div><div class="sk">personel</div></div>
+        <div class="pcs"><div class="sv">${s.area_ha}</div><div class="sk">Ha</div></div>
+        <div class="pcs"><div class="sv">${s.temuan}</div><div class="sk">temuan</div></div>
+        <div class="pcs"><div class="sv">${s.tanda}</div><div class="sk">tanda</div></div>
+        <div class="pcs"><div class="sv">${s.perjumpaan}</div><div class="sk">perjumpaan</div></div>
+      </div>
+      ${s.ancaman>0?`<div class="pc-flag">⚠ ${s.ancaman} indikasi ancaman</div>`:''}
+    </div>`;
+  });
+}
+
+function renderFindings(temuanRows){
+  const ft=document.getElementById('ftbl');
+  ft.innerHTML='<thead><tr><th>Sesi</th><th>Desa</th><th>Tanggal</th><th>Kategori</th><th>Pelanggaran</th><th>Ancaman?</th><th>Keterangan</th></tr></thead>';
+  let tb='<tbody>';
+  temuanRows.forEach(t=>{tb+=`<tr><td>${t.id_patroli||t['id patroli']||'—'}</td><td>${t.id_desa||'—'}</td><td>${t.tanggal||'—'}</td><td>${t.kategori||'—'}</td><td>${t.pelanggaran||'—'}</td><td>${(t.ancaman||'').toLowerCase()==='ya'?'<span class="by">Ya</span>':'<span class="bn">Tidak</span>'}</td><td>${t.keterangan||'—'}</td></tr>`;});
+  ft.innerHTML+=tb+'</tbody>';
+}
+
+// ─── MAIN BOOT ────────────────────────────────────────────────────
+(async()=>{
+  const STATUS = document.getElementById('loadStatus');
+
+  // 1. Init map terlebih dahulu
+  setLoadProg(5,'Inisialisasi peta...');
+  initMap();
+
+  // 2. Load GeoJSON files & Sheets secara parallel
+  setLoadProg(10,'Memuat data GeoJSON...');
+  const [geoData, sheetData] = await Promise.all([
+    loadAllData(),
+    fetchSheets(),
+  ]);
+
+  // 3. Render lapisan peta
+  setLoadProg(82,'Merender peta...');
+  renderLayers(geoData);
+
+  // 4. Sembunyikan loading overlay
+  setLoadProg(100,'Selesai!');
+  setTimeout(()=>{
+    const overlay=document.getElementById('mapLoading');
+    if(overlay){ overlay.style.opacity='0'; overlay.style.transition='opacity .4s'; setTimeout(()=>overlay.remove(),400); }
+  },300);
+
+  // 5. Susun data sessions (dari Sheets jika tersedia, fallback ke STATIC_CHART)
+  let sessions;
+  if(sheetData?.sessions?.length){
+    sessions = sheetData.sessions.map(r=>({
+      id:r.id_patroli||r['id patroli'],tahun:r.tahun,kuartal:r.kuartal,desa:r.id_desa,
+      tgl_mulai:r.tgl_mulai,tgl_selesai:r.tgl_selesai,leader:r.leader,
+      hari:+r.hari||0,personel:+r.personel||0,area_ha:+r.area_ha||0,
+      temuan:+r.temuan||0,tanda:+r.tanda||0,perjumpaan:+r.perjumpaan||0,
+      satwa_mati:+r.satwa_mati||0,aktv_manusia:+r.aktv_manusia||0,ancaman:+r.ancaman||0,
+      foto_tim:r.foto_tim||'',foto_kover:r.foto_kover||'',
+    }));
+    STATUS.innerHTML=`✅ Sheets: ${sessions.length} sesi`;
+  } else {
+    // Bangun dari tracks.geojson jika Sheets belum dikonfigurasi
+    sessions = geoData.tracks.features.map(f=>({
+      id:f.properties.id_patroli, tahun:f.properties.tahun, kuartal:f.properties.kuartal,
+      desa:f.properties.desa, tgl_mulai:f.properties.tgl_mulai, tgl_selesai:f.properties.tgl_selesai,
+      leader:f.properties.leader, hari:f.properties.hari, personel:5,
+      area_ha:f.properties.area_ha, temuan:0, tanda:0, perjumpaan:0, satwa_mati:0, aktv_manusia:0, ancaman:0,
+    }));
+    // Enrich dari STATIC_CHART
+    STATIC_CHART.sessions.forEach(s=>{
+      const match=sessions.find(x=>x.id===s.id_patroli);
+      if(match){match.temuan=s.temuan;match.tanda=s.tanda_satwa;match.perjumpaan=s.perjumpaan_satwa;match.satwa_mati=s.satwa_mati;match.aktv_manusia=s.aktv_manusia;match.ancaman=s.ancaman;match.personel=s.personel;}
+    });
+    STATUS.innerHTML=`📂 ${sessions.length} sesi (data lokal)`;
+  }
+
+  // 6. Render halaman statistik, patroli, temuan
+  const temuanRows = sheetData?.temuan?.length ? sheetData.temuan : STATIC_CHART.threats;
+  renderStats(sessions, sheetData);
+  renderPatrol(sessions);
+  renderFindings(temuanRows);
+
+  // ── GALLERY ────────────────────────────────────────────────
+  function renderGallery(sessions, findingsGJ){
+    const galEl = document.getElementById('galContent');
+    let html2 = '';
+    // Foto dari sesi (foto_tim & foto_kover)
+    const sesFotos = sessions.filter(s=>s.foto_tim||s.foto_kover);
+    if(sesFotos.length){
+      html2 += '<div class="slbl" style="padding:14px 14px 8px">Foto Sesi Patroli</div>';
+      html2 += '<div class="gal-grid">';
+      sesFotos.forEach(s=>{
+        const url = driveUrl(s.foto_tim||s.foto_kover);
+        if(!url) return;
+        html2 += `<div class="gal-card" onclick="openFoto('${url}','Tim Patroli ${s.id} · ${s.tgl_mulai}')">
+          <img src="${url}" alt="Foto ${s.id}" onerror="this.style.display='none'">
+          <div class="gal-info"><div class="gal-id">${s.id}</div><div class="gal-cap">${DESA_NAME[s.desa]||s.desa} · ${s.tgl_mulai}</div></div>
+        </div>`;
+      });
+      html2 += '</div>';
+    }
+    // Foto dari temuan
+    const fotoFindings = findingsGJ.features.filter(f=>f.properties.foto_url);
+    if(fotoFindings.length){
+      html2 += '<div class="slbl" style="padding:14px 14px 8px">Foto Temuan Lapangan</div>';
+      html2 += '<div class="gal-grid">';
+      fotoFindings.forEach(f=>{
+        const p = f.properties;
+        const url = driveUrl(p.foto_url);
+        if(!url) return;
+        const cat = CL[p.kategori0]||p.kategori0;
+        html2 += `<div class="gal-card" onclick="openFoto('${url}','${p.id_patroli} · ${cat} · ${p.tanggal}')">
+          <img src="${url}" alt="Foto ${p.id_patroli}" onerror="this.style.display='none'">
+          <div class="gal-info"><div class="gal-id">${p.id_patroli} · ${p.tanggal}</div><div class="gal-cap">${cat}${p.kategori1?' — '+p.kategori1:''}</div></div>
+        </div>`;
+      });
+      html2 += '</div>';
+    }
+    if(!sesFotos.length && !fotoFindings.length){
+      html2 = '<div style="padding:40px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)">📷 Belum ada foto.<br><br>Cara menambah foto:<br>1. Upload foto ke Google Drive<br>2. Klik kanan → Get link → Anyone with link → Copy<br>3. Paste link di kolom <b>foto_url</b> Google Sheets (SP_Temuan)<br>   atau <b>foto_tim</b> (SP_Sesi)<br>4. Dashboard otomatis tampilkan foto</div>';
+    }
+    galEl.innerHTML = html2;
+  }
+  renderGallery(sessions, geoData.findings);
+
+  // ── Meta bar
+  const meta=geoData.meta;
+  document.getElementById('metaBar').innerHTML=
+    `<span>📅 Update: ${meta.update_terakhir||'—'}</span>`+
+    `<span>🚶 Sesi terakhir: ${meta.sesi_terakhir||'—'}</span>`+
+    `<span>📍 ${meta.total_temuan||0} temuan tersimpan</span>`;
+
+  window.addEventListener('resize',()=>{if(document.getElementById('map-view').classList.contains('on'))map.invalidateSize();});
+})();
+</script>
+</body>
+</html>
