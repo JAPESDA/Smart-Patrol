@@ -343,7 +343,18 @@ function closeSB(){document.getElementById('sidebar').classList.remove('open');d
 document.getElementById('hbtn').addEventListener('click',()=>document.getElementById('sidebar').classList.contains('open')?closeSB():openSB());
 document.getElementById('sbBack').addEventListener('click',closeSB);
 
-function driveUrl(raw){if(!raw||!raw.trim())return'';const m=raw.match(/\/d\/([a-zA-Z0-9_\-]+)/);if(m)return`https://drive.google.com/uc?export=view&id=${m[1]}`;if(raw.startsWith('http'))return raw;return'';}
+function driveUrl(raw){
+  if(!raw||!raw.trim()) return '';
+  // Convert Drive share link ke direct image URL
+  const m = raw.match(/\/d\/([a-zA-Z0-9_\-]+)/);
+  if(m){
+    const id = m[1];
+    // Coba thumbnail format (lebih stabil dari uc?export=view yang deprecated)
+    return `https://drive.google.com/thumbnail?id=${id}&sz=w800`;
+  }
+  if(raw.startsWith('http')) return raw;
+  return '';
+}
 function openFoto(url,cap){const m=document.getElementById('fotoModal');document.getElementById('fotoModalImg').src=url;document.getElementById('fotoModalCap').textContent=cap||'';m.classList.add('open');}
 function closeFoto(){const m=document.getElementById('fotoModal');m.classList.remove('open');document.getElementById('fotoModalImg').src='';}
 document.getElementById('fotoModal').addEventListener('click',function(e){if(e.target===this)closeFoto();});
@@ -506,10 +517,10 @@ function renderFindings(rows){
 function renderGallery(sessions,rows){
   const gal=document.getElementById('galContent');let html='';
   const sesF=sessions.filter(s=>s.foto_tim||s.foto_kover);
-  if(sesF.length){html+='<div class="slbl" style="padding:14px 14px 8px">Foto Sesi Patroli</div><div class="gal-grid">';sesF.forEach(s=>{const url=driveUrl(s.foto_tim||s.foto_kover);if(!url)return;html+=`<div class="gal-card" onclick="openFoto('${url}','Tim ${s.id} · ${s.tgl_mulai}')"><img src="${url}" alt="${s.id}" onerror="this.parentNode.style.display='none'"><div class="gal-info"><div class="gal-id">${s.id}</div><div class="gal-cap">${DESA_NAME[s.desa]||s.desa} · ${s.tgl_mulai}</div></div></div>`;});html+='</div>';}
+  if(sesF.length){html+='<div class="slbl" style="padding:14px 14px 8px">Foto Sesi Patroli</div><div class="gal-grid">';sesF.forEach(s=>{const url=driveUrl(s.foto_tim||s.foto_kover);if(!url)return;html+=`<div class="gal-card" onclick="openFoto('${url}','Tim ${s.id} · ${s.tgl_mulai}')"><img src="${url}" alt="${s.id}" onerror="this.outerHTML='<div style=\'height:130px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:11px;flex-direction:column;gap:6px\'><span style=\'font-size:28px\'>📷</span>Klik untuk buka di Drive</div>'" onclick="window.open('${s.foto_tim||s.foto_kover}','_blank')"><div class="gal-info"><div class="gal-id">${s.id}</div><div class="gal-cap">${DESA_NAME[s.desa]||s.desa} · ${s.tgl_mulai}</div></div></div>`;});html+='</div>';}
   const findF=rows.filter(r=>(r.foto_url||'').trim());
-  if(findF.length){html+='<div class="slbl" style="padding:14px 14px 8px">Foto Temuan Lapangan</div><div class="gal-grid">';findF.forEach(r=>{const url=driveUrl(r.foto_url);if(!url)return;html+=`<div class="gal-card" onclick="openFoto('${url}','${r.id_patroli} · ${r.kategori||''} · ${r.tanggal||''}')"><img src="${url}" alt="${r.id_patroli}" onerror="this.parentNode.style.display='none'"><div class="gal-info"><div class="gal-id">${r.id_patroli} · ${r.tanggal||'—'}</div><div class="gal-cap">${r.kategori||'—'}${r.pelanggaran?' — '+r.pelanggaran:''}</div></div></div>`;});html+='</div>';}
-  if(!sesF.length&&!findF.length){html='<div style="padding:40px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)">📷 Belum ada foto.<br><br>Isi kolom <b>foto_url</b> di tab SP_Temuan<br>atau <b>foto_tim</b> di tab SP_Sesi<br>dengan link Google Drive.</div>';}
+  if(findF.length){html+='<div class="slbl" style="padding:14px 14px 8px">Foto Temuan Lapangan</div><div class="gal-grid">';findF.forEach(r=>{const url=driveUrl(r.foto_url);if(!url)return;html+=`<div class="gal-card" onclick="openFoto('${url}','${r.id_patroli} · ${r.kategori||''} · ${r.tanggal||''}')"><img src="${url}" alt="${r.id_patroli}" onerror="this.outerHTML='<div style=\'height:130px;display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:11px;flex-direction:column;gap:6px;cursor:pointer\' onclick=\'window.open(\''+r.foto_url+'\',\'_blank\')\'><span style=\'font-size:28px\'>📷</span>Klik untuk buka di Drive</div>'"><div class="gal-info"><div class="gal-id">${r.id_patroli} · ${r.tanggal||'—'}</div><div class="gal-cap">${r.kategori||'—'}${r.pelanggaran?' — '+r.pelanggaran:''}</div></div></div>`;});html+='</div>';}
+  if(!sesF.length&&!findF.length){html='<div style="padding:40px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--text-faint)">📷 Belum ada foto terdaftar.<br><br>1. Upload foto ke Google Drive<br>2. Klik kanan → Bagikan → <b>Siapa saja yang memiliki link → Penampil</b><br>3. Dapatkan link → paste ke kolom <b>foto_url</b> (SP_Temuan)<br>   atau <b>foto_tim</b> (SP_Sesi)</div>';}
   gal.innerHTML=html;
 }
 
